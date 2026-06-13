@@ -1,0 +1,242 @@
+/* ============================================================
+   _бренд-кит.css — веб-кит «Математика с Ди и Леммой»
+   Обновлено: 2026-06-13 (+ фон-узор «ромбы ±30°»: зафиксированный
+   фон-слой .lk-page::before + обложка .lk-cover — Лемма, приказ 13.06)
+   Создан 2026-06-13 (Лемма, приказ от 12.06)
+
+   Один файл = весь бренд для веб-домашек и мини-приложений.
+   Подключение и правила — в _бренд-кит_README.md.
+   Эталоны: квиз diagnostic_drobi (поведение) + карусель
+   Авито 11.06 и обложка ВК v4b (палитра/типографика).
+
+   Префикс классов: .lk-  (никаких коллизий со своим CSS).
+   Канон: фон #0A0610, фиолет-индиго, БЕЗ ЖЁЛТОГО, без коралла.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Geologica:wght@300;400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root{
+  /* — фон и поверхности — */
+  --lk-bg:        #0A0610;   /* канон бренда, почти чёрный */
+  --lk-bg-halo:   #1b1b3d;   /* центр радиальной подсветки фона */
+  --lk-surface:   #171733;   /* карточка, вариант ответа */
+  --lk-surface-2: #141430;   /* низ градиентных карточек */
+  --lk-surface-3: #1a1a3a;   /* верх градиентных карточек */
+  --lk-line:      #2a2a4d;   /* обводки, разделители */
+
+  /* — текст — */
+  --lk-ink:   #eef0ff;       /* основной */
+  --lk-muted: #9aa0c8;       /* вторичный */
+
+  /* — бренд-акценты (фиолет-индиго, не более 2 на экран) — */
+  --lk-violet:      #A855F7; /* главный акцент */
+  --lk-violet-deep: #7C3AED; /* глубокий фиолет, тени/глоу */
+  --lk-magenta:     #D946EF; /* пара для градиентов */
+  --lk-indigo:      #4F46E5; /* синий/индиго, инженерность */
+
+  /* — функциональные состояния (не считаются акцентами) — */
+  --lk-ok:   #34D399;        /* верно */
+  --lk-bad:  #F43F5E;        /* неверно */
+  --lk-warn: #818CF8;        /* «шатко», промежуточное */
+
+  /* — шрифты — */
+  --lk-font: 'Geologica', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --lk-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* — радиусы — */
+  --lk-r-sm:   9px;          /* мелкие плашки, ключи вариантов */
+  --lk-r-md:  14px;          /* кнопки */
+  --lk-r-lg:  16px;          /* варианты ответов */
+  --lk-r-xl:  18px;          /* карточки, блоки объяснений */
+  --lk-r-pill: 100px;        /* пилюли-бейджи */
+
+  /* — глоу (дорогой атмосферный, не дешёвая неонка) — */
+  --lk-glow-cta:  0 8px 30px rgba(124,58,237,.45);
+  --lk-glow-ok:   0 0 26px rgba(52,211,153,.25);
+  --lk-glow-bad:  0 0 26px rgba(244,63,94,.20);
+  --lk-glow-edge: 0 0 0 1px var(--lk-indigo), 0 0 22px rgba(99,102,241,.25);
+
+  /* — фон-узор: изометрические ромбы ±30° (как на обложках) — */
+  --lk-mesh-1:   rgba(168,85,247,.05); /* фиолет, тихо — рабочий экран */
+  --lk-mesh-2:   rgba(79,70,229,.05);  /* индиго, тихо */
+  --lk-mesh-gap: 42px;                 /* шаг сетки (размер ромба) */
+}
+
+/* ============ база страницы ============ */
+
+.lk-page{
+  margin:0; min-height:100vh;
+  background:var(--lk-bg);
+  color:var(--lk-ink);
+  font-family:var(--lk-font);
+  -webkit-tap-highlight-color:transparent;
+}
+.lk-page *{box-sizing:border-box}
+
+/* фон-слой: ЗАФИКСИРОВАН под контентом (position:fixed — надёжно на телефонах,
+   в отличие от background-attachment). Карточки скроллятся, ромбы стоят —
+   ощущение «карточки парят». Гало сверху + тихие изо-ромбы ±30°. */
+.lk-page::before{
+  content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background-color:var(--lk-bg);
+  background-image:
+    radial-gradient(1200px 620px at 50% -4%, var(--lk-bg-halo), transparent 60%),
+    repeating-linear-gradient(30deg,  transparent 0 var(--lk-mesh-gap), var(--lk-mesh-1) var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px)),
+    repeating-linear-gradient(-30deg, transparent 0 var(--lk-mesh-gap), var(--lk-mesh-2) var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px));
+  background-repeat:no-repeat, repeat, repeat;
+}
+
+/* громкость узора на весь экран (по желанию; дефолт .lk-page — тихий) */
+.lk-page--mesh-mid { --lk-mesh-1:rgba(168,85,247,.09); --lk-mesh-2:rgba(79,70,229,.09) }
+.lk-page--mesh-hero{ --lk-mesh-1:rgba(168,85,247,.16); --lk-mesh-2:rgba(79,70,229,.15) }
+
+/* центральная колонка под мобильный */
+.lk-app{width:100%;max-width:560px;margin:0 auto;padding:18px}
+
+/* ============ обложка / стартовый экран ============ */
+/* Узор средней силы (между тихим и громким), БЕЗ цветного тумана.
+   Своя подложка, чтобы фон-ромбы страницы не двоились. */
+.lk-cover{
+  position:relative; overflow:hidden; text-align:center;
+  border-radius:var(--lk-r-xl);
+  padding:48px 22px 40px;
+  background:radial-gradient(820px 460px at 50% 0%, var(--lk-bg-halo), var(--lk-bg) 64%);
+}
+.lk-cover::before{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background-image:
+    repeating-linear-gradient(30deg,  transparent 0 42px, rgba(168,85,247,.10) 42px 43.4px),
+    repeating-linear-gradient(-30deg, transparent 0 42px, rgba(79,70,229,.095) 42px 43.4px);
+}
+.lk-cover>*{position:relative; z-index:1}
+
+/* неоново-белое свечение заголовка (обложка). Утилита .lk-glow — где нужно. */
+.lk-cover .lk-h1, .lk-glow{
+  color:#fff;
+  text-shadow:0 0 9px rgba(255,255,255,.45), 0 0 20px rgba(255,255,255,.22);
+}
+
+/* ============ типографика ============ */
+
+.lk-kicker{
+  font-family:var(--lk-mono);
+  font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--lk-violet);margin-bottom:14px;
+}
+.lk-h1{font-size:30px;line-height:1.15;margin:0 0 14px;font-weight:900}
+.lk-lead{font-size:17px;line-height:1.5;color:var(--lk-muted);margin:0 0 26px;font-weight:400}
+.lk-cond{font-size:23px;line-height:1.35;font-weight:700;margin:0 0 22px} /* условие задачи */
+.lk-caption{font-size:13px;color:var(--lk-muted);font-weight:300;letter-spacing:.14em;text-transform:uppercase}
+
+/* формулы и числа — всегда mono */
+.lk-mono{font-family:var(--lk-mono);font-variant-numeric:tabular-nums}
+
+/* ============ карточки ============ */
+
+.lk-card{
+  background:linear-gradient(160deg, var(--lk-surface-3), var(--lk-surface-2));
+  border:1px solid var(--lk-line);
+  border-radius:var(--lk-r-xl);
+  padding:20px;font-size:17px;line-height:1.5;
+}
+.lk-card b{color:var(--lk-violet)}
+
+/* ============ варианты ответа ============ */
+
+.lk-opt{
+  display:flex;align-items:center;gap:14px;width:100%;text-align:left;cursor:pointer;
+  background:var(--lk-surface);color:var(--lk-ink);
+  border:1.5px solid var(--lk-line);border-radius:var(--lk-r-lg);
+  padding:17px 18px;font-size:18px;font-weight:600;font-family:var(--lk-font);
+  transition:transform .12s ease,border-color .2s,box-shadow .2s,background .2s;
+}
+.lk-opt:active{transform:scale(.985)}
+.lk-opt:not(.is-locked):hover{border-color:var(--lk-indigo);box-shadow:var(--lk-glow-edge)}
+
+/* буква-ключ варианта (А/Б/В) */
+.lk-opt .lk-key{
+  width:30px;height:30px;flex:0 0 30px;border-radius:var(--lk-r-sm);
+  display:grid;place-items:center;font-size:14px;font-weight:800;
+  background:#23234a;color:var(--lk-violet);border:1px solid var(--lk-line);
+}
+
+/* состояния верно / неверно / заблокировано */
+.lk-opt.is-correct{border-color:var(--lk-ok);background:rgba(52,211,153,.12);box-shadow:var(--lk-glow-ok)}
+.lk-opt.is-correct .lk-key{background:var(--lk-ok);color:#04231a;border-color:transparent}
+.lk-opt.is-wrong{border-color:var(--lk-bad);background:rgba(244,63,94,.10);box-shadow:var(--lk-glow-bad)}
+.lk-opt.is-wrong .lk-key{background:var(--lk-bad);color:#2a0410;border-color:transparent}
+.lk-opt.is-locked{cursor:default;opacity:.55}
+.lk-opt.is-locked.is-correct,.lk-opt.is-locked.is-wrong{opacity:1}
+
+/* колонка вариантов */
+.lk-opts{display:flex;flex-direction:column;gap:12px}
+
+/* ============ кнопки ============ */
+
+.lk-btn{
+  border:none;cursor:pointer;font-family:var(--lk-font);
+  font-weight:800;font-size:17px;color:#fff;
+  padding:15px 26px;border-radius:var(--lk-r-md);
+  background:linear-gradient(120deg, var(--lk-indigo), var(--lk-violet));
+  box-shadow:var(--lk-glow-cta);
+  transition:transform .12s,box-shadow .2s,opacity .2s;
+}
+.lk-btn:active{transform:translateY(1px) scale(.99)}
+.lk-btn.lk-ghost{background:transparent;border:1.5px solid var(--lk-line);box-shadow:none;color:var(--lk-muted)}
+.lk-btn.lk-ghost:hover{border-color:var(--lk-indigo);color:var(--lk-ink)}
+
+/* ============ прогресс ============ */
+
+.lk-progress{flex:1;height:8px;border-radius:8px;background:#1c1c3a;overflow:hidden;border:1px solid var(--lk-line)}
+.lk-progress .lk-fill{
+  height:100%;width:0;border-radius:8px;
+  background:linear-gradient(90deg, var(--lk-indigo), var(--lk-violet));
+  box-shadow:0 0 14px var(--lk-violet);
+  transition:width .45s cubic-bezier(.2,.8,.2,1);
+}
+
+/* ============ статус-точки (карта тем) ============ */
+
+.lk-dot{width:13px;height:13px;border-radius:50%;flex:0 0 13px}
+.lk-dot.is-ok{background:var(--lk-ok);box-shadow:0 0 12px var(--lk-ok)}
+.lk-dot.is-warn{background:var(--lk-warn);box-shadow:0 0 12px var(--lk-warn)}
+.lk-dot.is-gap{background:var(--lk-bad);box-shadow:0 0 12px var(--lk-bad)}
+
+/* ============ пилюля-бейдж ============ */
+
+.lk-pill{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:8px 18px;border-radius:var(--lk-r-pill);
+  border:1px solid var(--lk-line);
+  font-family:var(--lk-mono);font-size:13px;font-weight:700;
+  letter-spacing:.10em;text-transform:uppercase;color:#E9D5FF;
+}
+.lk-pill .lk-pill-dot{
+  width:9px;height:9px;border-radius:50%;
+  background:linear-gradient(135deg, var(--lk-magenta), var(--lk-violet));
+  box-shadow:0 0 10px rgba(217,70,239,.8);
+}
+
+/* ============ появление экрана ============ */
+
+.lk-screen{animation:lk-in .45s cubic-bezier(.2,.8,.2,1)}
+@keyframes lk-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* ============ подпись (массовый контент: два бейджа Di Λ) ============ */
+
+/* градиенты бейджей — канон карусели Авито 11.06: Di и Λ различаются */
+.lk-sign{display:flex;gap:10px;justify-content:center;align-items:center;margin-top:26px;opacity:.85}
+.lk-sign .lk-badge{
+  width:34px;height:34px;border-radius:50%;
+  display:grid;place-items:center;
+  font-weight:900;font-size:14px;color:#fff;
+}
+.lk-badge.lk-badge-di{
+  background:linear-gradient(135deg, var(--lk-violet), var(--lk-violet-deep));
+  box-shadow:0 0 14px rgba(168,85,247,.7), 0 0 34px rgba(168,85,247,.48);
+  letter-spacing:-0.02em;
+}
+.lk-badge.lk-badge-l{
+  background:linear-gradient(135deg, var(--lk-magenta), var(--lk-violet));
+  box-shadow:0 0 14px rgba(217,70,239,.65), 0 0 34px rgba(217,70,239,.4);
+}

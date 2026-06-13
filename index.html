@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Бренд-кит — демо всех компонентов</title>
+<link rel="stylesheet" href="brand-kit.css">
+<style>
+  /* только разметка демо-страницы, не часть кита */
+  .demo-sec{margin:34px 0 0}
+  .demo-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .demo-top{display:flex;align-items:center;gap:12px;margin:14px 0}
+  .demo-count{font-size:13px;color:var(--lk-muted);font-variant-numeric:tabular-nums}
+  .demo-theme{display:flex;align-items:center;gap:13px;background:var(--lk-surface);
+    border:1px solid var(--lk-line);border-radius:13px;padding:13px 15px;margin-bottom:10px}
+  .demo-theme .nm{font-weight:700;font-size:16px;flex:1}
+  .demo-theme .st{font-size:12px;color:var(--lk-muted)}
+</style>
+</head>
+<body class="lk-page">
+<div class="lk-app lk-screen">
+
+  <div class="lk-kicker">Бренд-кит · демо</div>
+  <h1 class="lk-h1">Так выглядит веб-домашка</h1>
+  <p class="lk-lead">Каждый компонент ниже — класс из <span class="lk-mono">brand-kit.css</span>. Кодер собирает страницу из них, как из конструктора. Фон-узор «ромбы» зафиксирован — прокрути, карточки парят.</p>
+
+  <div class="demo-sec">
+    <div class="lk-cover">
+      <div class="lk-kicker">Стартовый экран · .lk-cover</div>
+      <h1 class="lk-h1">Заголовок со свечением</h1>
+      <p class="lk-lead" style="margin-bottom:18px">Узор средней силы + неоново-белое свечение — подхватываются сами.</p>
+      <button class="lk-btn">Поехали 🚀</button>
+    </div>
+  </div>
+
+  <div class="demo-sec">
+    <div class="lk-pill"><span class="lk-pill-dot"></span>Спринт · Дроби</div>
+  </div>
+
+  <div class="demo-sec">
+    <div class="demo-top">
+      <div class="lk-progress" style="flex:1"><div class="lk-fill" style="width:43%"></div></div>
+      <div class="demo-count">6 / 14</div>
+    </div>
+  </div>
+
+  <div class="demo-sec">
+    <p class="lk-cond">Сравни: <span class="lk-mono">3/8</span> и <span class="lk-mono">0,4</span> — что больше?</p>
+    <div class="lk-opts">
+      <button class="lk-opt is-locked is-wrong"><span class="lk-key">А</span><span><span class="lk-mono">3/8</span> больше</span></button>
+      <button class="lk-opt is-locked is-correct"><span class="lk-key">Б</span><span><span class="lk-mono">0,4</span> больше</span></button>
+      <button class="lk-opt is-locked"><span class="lk-key">В</span>они равны</button>
+    </div>
+  </div>
+
+  <div class="demo-sec">
+    <div class="lk-card">
+      Смотри: <b><span class="lk-mono">3/8 = 0,375</span></b> — а это меньше, чем
+      <span class="lk-mono">0,4</span>. Дробь и десятичная запись — это
+      <b>одно число в двух костюмах</b>, переодень — и сравнение очевидно.
+    </div>
+  </div>
+
+  <div class="demo-sec demo-row">
+    <button class="lk-btn">Дальше</button>
+    <button class="lk-btn lk-ghost">Пропустить</button>
+  </div>
+
+  <div class="demo-sec">
+    <div class="lk-caption" style="margin-bottom:12px">Карта тем</div>
+    <div class="demo-theme"><span class="lk-dot is-ok"></span><span class="nm">Смысл дроби</span><span class="st">уверенно</span></div>
+    <div class="demo-theme"><span class="lk-dot is-warn"></span><span class="nm">Сравнение</span><span class="st">шатко</span></div>
+    <div class="demo-theme"><span class="lk-dot is-gap"></span><span class="nm">Деление дробей</span><span class="st">пробел</span></div>
+  </div>
+
+  <div class="lk-sign">
+    <span class="lk-badge lk-badge-l">Λ</span>
+    <span class="lk-badge lk-badge-di">Di</span>
+  </div>
+
+</div>
+</body>
+</html>
