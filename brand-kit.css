@@ -57,9 +57,9 @@
   --lk-glow-edge: 0 0 0 1px var(--lk-indigo), 0 0 22px rgba(99,102,241,.25);
 
   /* — фон-узор: изометрические ромбы ±30° (как на обложках) — */
-  --lk-mesh-1:   rgba(168,85,247,.05); /* фиолет, тихо — рабочий экран */
-  --lk-mesh-2:   rgba(79,70,229,.05);  /* индиго, тихо */
-  --lk-mesh-gap: 42px;                 /* шаг сетки (размер ромба) */
+  --lk-mesh-1:   rgba(168,85,247,.085); /* фиолет — рабочий экран */
+  --lk-mesh-2:   rgba(79,70,229,.085);  /* индиго */
+  --lk-mesh-gap: 42px;                  /* шаг сетки (размер ромба) */
 }
 
 /* ============ база страницы ============ */
@@ -75,15 +75,14 @@
 
 /* фон-слой: ЗАФИКСИРОВАН под контентом (position:fixed — надёжно на телефонах,
    в отличие от background-attachment). Карточки скроллятся, ромбы стоят —
-   ощущение «карточки парят». Гало сверху + тихие изо-ромбы ±30°. */
+   ощущение «карточки парят». Только изо-ромбы ±30°, без верхнего гало-тумана. */
 .lk-page::before{
   content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
   background-color:var(--lk-bg);
   background-image:
-    radial-gradient(1200px 620px at 50% -4%, var(--lk-bg-halo), transparent 60%),
     repeating-linear-gradient(30deg,  transparent 0 var(--lk-mesh-gap), var(--lk-mesh-1) var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px)),
     repeating-linear-gradient(-30deg, transparent 0 var(--lk-mesh-gap), var(--lk-mesh-2) var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px));
-  background-repeat:no-repeat, repeat, repeat;
+  background-repeat:repeat, repeat;
 }
 
 /* громкость узора на весь экран (по желанию; дефолт .lk-page — тихий) */
