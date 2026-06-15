@@ -1,7 +1,9 @@
 /* ============================================================
    _бренд-кит.css — веб-кит «Математика с Ди и Леммой»
-   Обновлено: 2026-06-13 (+ фон-узор «ромбы ±30°»: зафиксированный
-   фон-слой .lk-page::before + обложка .lk-cover — Лемма, приказ 13.06)
+   Обновлено: 2026-06-15 (фон-ромбы → переливы через альфа-маску: цвет живёт
+   на линиях ромбов, без тумана-пятен + микро-дофамин вспышки .lk-flash-*
+   поверх фона — Лемма, приказ 15.06)
+   2026-06-13: фон-узор «ромбы ±30°» (.lk-page::before + .lk-cover)
    Создан 2026-06-13 (Лемма, приказ от 12.06)
 
    Один файл = весь бренд для веб-домашек и мини-приложений.
@@ -56,10 +58,12 @@
   --lk-glow-bad:  0 0 26px rgba(244,63,94,.20);
   --lk-glow-edge: 0 0 0 1px var(--lk-indigo), 0 0 22px rgba(99,102,241,.25);
 
-  /* — фон-узор: изометрические ромбы ±30° (как на обложках) — */
-  --lk-mesh-1:   rgba(168,85,247,.085); /* фиолет — рабочий экран */
-  --lk-mesh-2:   rgba(79,70,229,.085);  /* индиго */
+  /* — фон-узор: изометрические ромбы ±30° с ПЕРЕЛИВАМИ —
+     Приём: цветное поле (фиолет→индиго→капля мадженты) обрезается сеткой
+     ромбов через mask. Цвет живёт ТОЛЬКО на линиях: где-то ярче/фиолет,
+     где-то затухает/индиго. Никакого тумана-пятен поверх макета. */
   --lk-mesh-gap: 42px;                  /* шаг сетки (размер ромба) */
+  --lk-mesh-op:  .78;                   /* яркость фона-ромбов: рабочий экран тихий */
 }
 
 /* ============ база страницы ============ */
@@ -78,19 +82,27 @@
    ощущение «карточки парят». Только изо-ромбы ±30°, без верхнего гало-тумана. */
 .lk-page::before{
   content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
-  background-color:var(--lk-bg);
+  opacity:var(--lk-mesh-op);
+  /* цветное поле переливов */
   background-image:
-    repeating-linear-gradient(30deg,  transparent 0 var(--lk-mesh-gap), var(--lk-mesh-1) var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px)),
-    repeating-linear-gradient(-30deg, transparent 0 var(--lk-mesh-gap), var(--lk-mesh-2) var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px));
-  background-repeat:repeat, repeat;
+    linear-gradient(135deg, rgba(168,85,247,.22) 0%, rgba(79,70,229,.12) 50%, rgba(168,85,247,.055) 100%),
+    radial-gradient(80% 70% at 82% 10%, rgba(217,70,239,.16), transparent 60%);
+  /* обрезаем поле сеткой ромбов — цвет остаётся только на линиях */
+  -webkit-mask:
+    repeating-linear-gradient(30deg,  transparent 0 var(--lk-mesh-gap), #000 var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px)),
+    repeating-linear-gradient(-30deg, transparent 0 var(--lk-mesh-gap), #000 var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px));
+          mask:
+    repeating-linear-gradient(30deg,  transparent 0 var(--lk-mesh-gap), #000 var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px)),
+    repeating-linear-gradient(-30deg, transparent 0 var(--lk-mesh-gap), #000 var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px));
 }
 
 /* громкость узора на весь экран (по желанию; дефолт .lk-page — тихий) */
-.lk-page--mesh-mid { --lk-mesh-1:rgba(168,85,247,.09); --lk-mesh-2:rgba(79,70,229,.09) }
-.lk-page--mesh-hero{ --lk-mesh-1:rgba(168,85,247,.16); --lk-mesh-2:rgba(79,70,229,.15) }
+.lk-page--mesh-mid { --lk-mesh-op:.90 }
+.lk-page--mesh-hero{ --lk-mesh-op:1 }
 
-/* центральная колонка под мобильный */
-.lk-app{width:100%;max-width:560px;margin:0 auto;padding:18px}
+/* центральная колонка под мобильный.
+   position/z-index — чтобы контент был НАД слоем вспышек .lk-flash (z-index:0). */
+.lk-app{position:relative; z-index:1; width:100%;max-width:560px;margin:0 auto;padding:18px}
 
 /* ============ обложка / стартовый экран ============ */
 /* Узор средней силы (между тихим и громким), БЕЗ цветного тумана.
@@ -103,9 +115,16 @@
 }
 .lk-cover::before{
   content:""; position:absolute; inset:0; pointer-events:none;
+  /* те же переливы, но в полную силу — обложка ярче рабочего экрана */
   background-image:
-    repeating-linear-gradient(30deg,  transparent 0 42px, rgba(168,85,247,.10) 42px 43.4px),
-    repeating-linear-gradient(-30deg, transparent 0 42px, rgba(79,70,229,.095) 42px 43.4px);
+    linear-gradient(135deg, rgba(168,85,247,.22) 0%, rgba(79,70,229,.12) 50%, rgba(168,85,247,.055) 100%),
+    radial-gradient(80% 70% at 82% 10%, rgba(217,70,239,.16), transparent 60%);
+  -webkit-mask:
+    repeating-linear-gradient(30deg,  transparent 0 var(--lk-mesh-gap), #000 var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px)),
+    repeating-linear-gradient(-30deg, transparent 0 var(--lk-mesh-gap), #000 var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px));
+          mask:
+    repeating-linear-gradient(30deg,  transparent 0 var(--lk-mesh-gap), #000 var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px)),
+    repeating-linear-gradient(-30deg, transparent 0 var(--lk-mesh-gap), #000 var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px));
 }
 .lk-cover>*{position:relative; z-index:1}
 
@@ -224,6 +243,45 @@
 
 .lk-screen{animation:lk-in .45s cubic-bezier(.2,.8,.2,1)}
 @keyframes lk-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* ============ микро-дофамин: вспышки фона-ромбов ============
+   Слой вспышки — ФИКС поверх статичных ромбов, но ПОД контентом
+   (.lk-app / .lk-cover уже над ним через z-index:1).
+
+   Кодеру — подключение (один раз, сразу после <body class="lk-page">):
+     <div class="lk-flash lk-flash-correct" id="lk-fx-ok"></div>
+     <div class="lk-flash lk-flash-wrong"   id="lk-fx-bad"></div>
+   Запуск (перезапускаемо — можно жать подряд):
+     function lkFlash(el){el.classList.remove('is-on');void el.offsetWidth;el.classList.add('is-on');}
+     // верно:   lkFlash(document.getElementById('lk-fx-ok'));
+     // неверно: lkFlash(document.getElementById('lk-fx-bad'));
+   Характер: ВЕРНО — резко вспыхивает и спадает (радость, коротко);
+             НЕВЕРНО — мягко гаснет и плавно возвращается (длиннее, без агрессии). */
+.lk-flash{position:fixed; inset:0; z-index:0; pointer-events:none; opacity:0}
+
+/* ВЕРНО: ромбы резко загораются + лёгкое свечение вокруг линий, затем спад */
+.lk-flash-correct{
+  background-image:
+    radial-gradient(circle at 50% 45%, rgba(217,70,239,.34), transparent 62%),
+    repeating-linear-gradient(30deg,  transparent 0 var(--lk-mesh-gap), rgba(168,85,247,.64) var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px)),
+    repeating-linear-gradient(-30deg, transparent 0 var(--lk-mesh-gap), rgba(217,70,239,.60) var(--lk-mesh-gap) calc(var(--lk-mesh-gap) + 1.4px));
+  filter:drop-shadow(0 0 5px rgba(168,85,247,.55)) drop-shadow(0 0 11px rgba(217,70,239,.32));
+}
+.lk-flash-correct.is-on{animation:lk-flash-correct .80s cubic-bezier(.16,1,.3,1)}
+@keyframes lk-flash-correct{
+  0%   {opacity:0; transform:scale(1)}
+  10%  {opacity:1; transform:scale(1.04)}   /* резкая яркая вспышка */
+  100% {opacity:0; transform:scale(1)}      /* радостный спад */
+}
+
+/* НЕВЕРНО: ромбы гаснут (тонут в фоне) и плавно возвращаются */
+.lk-flash-wrong{background-color:var(--lk-bg)}
+.lk-flash-wrong.is-on{animation:lk-flash-wrong .95s cubic-bezier(.4,0,.2,1)}
+@keyframes lk-flash-wrong{
+  0%   {opacity:0}
+  22%  {opacity:.74}   /* мягко гаснут */
+  100% {opacity:0}     /* плавно возвращаются */
+}
 
 /* ============ подпись (массовый контент: два бейджа Di Λ) ============ */
 
