@@ -435,14 +435,7 @@
 .lk-badge.lk-badge-d{
   background:linear-gradient(135deg, var(--lk-violet), var(--lk-violet-deep));
   box-shadow:0 0 14px rgba(168,85,247,.7), 0 0 34px rgba(168,85,247,.48);
-}
-.lk-badge.lk-badge-d span{
-  display:inline-block;white-space:nowrap;letter-spacing:-.02em;transform:translateX(2px);
-}
-/* .lk-mark-dot — типографская точка в знаке D. (не статус-кружок .lk-dot!) */
-.lk-mark-dot{
-  color:var(--lk-mint);
-  text-shadow:0 0 8px rgba(94,234,212,.9), 0 0 18px rgba(94,234,212,.5);
+  letter-spacing:-.03em;
 }
 .lk-badge.lk-badge-l{
   background:linear-gradient(135deg, var(--lk-magenta), var(--lk-violet));
