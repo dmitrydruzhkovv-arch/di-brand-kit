@@ -444,3 +444,4 @@
 
 /* малый вариант — для шапок, навигации, прогресс-баров (≈26px) */
 .lk-badge.lk-badge--sm{width:26px;height:26px;font-size:11px}
+.lk-badge.lk-badge-d.lk-badge--sm{padding-left:1px}
