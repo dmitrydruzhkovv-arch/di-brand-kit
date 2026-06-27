@@ -437,10 +437,11 @@
   box-shadow:0 0 14px rgba(168,85,247,.7), 0 0 34px rgba(168,85,247,.48);
 }
 .lk-badge.lk-badge-d span{
-  display:inline-block;white-space:nowrap;letter-spacing:-.02em;transform:translateX(2px);
+  display:inline-block;white-space:nowrap;letter-spacing:-.02em;transform:translateX(9px);
 }
 .lk-badge.lk-badge-d .lk-dot{
   color:var(--lk-mint);
+  margin-left:-2px;
   text-shadow:0 0 8px rgba(94,234,212,.9), 0 0 18px rgba(94,234,212,.5);
 }
 .lk-badge.lk-badge-l{
