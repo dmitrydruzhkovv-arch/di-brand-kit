@@ -163,6 +163,42 @@
       });
   }
 
+  /* ── ЗВУК ───────────────────────────────────────────────────────────────────
+     Браузер (особенно встроенный в ВК) не даёт играть звук, пока человек не
+     коснулся страницы. Домашки «будили» звук так: при первом касании запускали
+     все мелодии и тут же ставили на паузу. Пауза приходит ПОСЛЕ старта
+     воспроизведения — поэтому на первом же тапе ученик слышал победу, проигрыш и
+     финал разом (Ди, 13.07). Правильный приём: будим НА ЗАГЛУШЁННОМ звуке
+     (muted) и только потом возвращаем громкость — слышно ничего не будет. */
+  var _unlocked = false;
+  function unlockAudio(ids) {
+    if (_unlocked) return;
+    _unlocked = true;
+    (ids || []).forEach(function (id) {
+      var a = document.getElementById(id);
+      if (!a) return;
+      var back = a.muted;
+      a.muted = true;                       // ← ключ: будим молча
+      var done = function () {
+        try { a.pause(); a.currentTime = 0; } catch (e) {}
+        a.muted = back;                     // громкость вернули — играть будет когда надо
+      };
+      try {
+        var p = a.play();
+        if (p && p.then) p.then(done).catch(done);
+        else done();
+      } catch (e) { done(); }
+    });
+  }
+
+  /** Проиграть звук по id (<audio>). Тихо игнорирует запрет автоплея. */
+  function playSound(id) {
+    var a = document.getElementById(id);
+    if (!a) return;
+    try { a.currentTime = 0; var p = a.play(); if (p && p.catch) p.catch(function () {}); }
+    catch (e) {}
+  }
+
   window.HwCore = {
     ENDPOINT: ENDPOINT,
     token: token,
@@ -171,5 +207,7 @@
     revItemsHtml: revItemsHtml,
     bindToggles: bindToggles,
     showReview: showReview,
+    unlockAudio: unlockAudio,
+    playSound: playSound,
   };
 })();
