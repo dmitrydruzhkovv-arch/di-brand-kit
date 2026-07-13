@@ -83,19 +83,53 @@
     return true;
   }
 
-  /** Карточки разбора. helpers: { fmtInline, renderFeedback } — у каждой домашки свои
-      (математика рисуется по-разному), поэтому движок их не выдумывает, а принимает. */
+  /* Строка ответа в разборе — «твой выбор» / «правильный». Формат взят из входного
+     теста ОГЭ (rvRow), где Ди его и видел; теперь он общий для домашек и тестов. */
+  function ansRow(text, kind) {
+    var mk = kind === 'right' ? '✅' : kind === 'yours-ok' ? '✅' : '✖';
+    var cls = kind === 'yours-bad' ? 'bad' : 'ok';
+    var tag = kind === 'right' ? 'правильный'
+            : kind === 'yours-ok' ? 'твой · верно' : 'твой ответ';
+    return '<div class="rev-ans ' + cls + '" style="display:flex;align-items:center;gap:8px;'
+      + 'padding:8px 11px;margin-bottom:6px;border-radius:10px;font-size:13px;line-height:1.5;'
+      + 'background:' + (cls === 'bad' ? 'rgba(244,63,94,.08)' : 'rgba(74,222,128,.09)') + ';'
+      + 'border:1px solid ' + (cls === 'bad' ? 'rgba(244,63,94,.22)' : 'rgba(74,222,128,.22)') + '">'
+      + '<span>' + mk + '</span><span style="flex:1">' + text + '</span>'
+      + '<span style="font-size:10.5px;opacity:.65;white-space:nowrap">' + tag + '</span></div>';
+  }
+
+  /** Карточки разбора — ЕДИНЫЙ формат для всех веб-ДЗ и тестов:
+        условие задания → картинка (если есть) → твой ответ / правильный → разбор.
+      Раскрывается по тапу (не только ошибки — верные тоже, Ди смотрит любое задание).
+      helpers: { fmtInline, renderFeedback } — как рисовать математику, у каждой ДЗ своё.
+      Поля задачи: { label, diff, ok/correct, cond, image, pick, answer, wrong[], feedback } */
   function revItemsHtml(items, helpers) {
     var fmt = (helpers && helpers.fmtInline) || function (s) { return s; };
     var fb = (helpers && helpers.renderFeedback) || function () { return ''; };
     return (items || []).map(function (r, i) {
       var ok = !!(r.correct !== undefined ? r.correct : r.ok);
-      var wrong = r.wrong || [];
-      var wrongLines = wrong.length
-        ? '<div class="rev-wrong-line" style="padding:9px 12px;margin-bottom:10px;border-radius:12px;'
-          + 'background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.2);font-size:13px;line-height:1.7">'
-          + wrong.map(function (w) { return fmt(w); }).join('<br>') + '</div>'
-        : '';
+
+      var cond = r.cond ? '<p class="rev-cond" style="font-size:13.5px;line-height:1.6;'
+        + 'margin:0 0 10px">' + fmt(r.cond) + '</p>' : '';
+      var image = r.image ? '<div class="rev-fig" style="margin:0 0 10px"><img src="' + r.image
+        + '" alt="чертёж" style="max-width:100%;border-radius:10px"></div>' : '';
+
+      // Ответы: что дал ученик и что верно. Если механика их не отдала — падаем на
+      // строки wrong[] (старый вид), чтобы разбор не пустовал.
+      var ans = '';
+      if (r.pick !== undefined && r.pick !== null && r.pick !== '') {
+        ans += ansRow(fmt(String(r.pick)), ok ? 'yours-ok' : 'yours-bad');
+      }
+      if (!ok && r.answer !== undefined && r.answer !== null && r.answer !== '') {
+        ans += ansRow(fmt(String(r.answer)), 'right');
+      }
+      if (!ans && (r.wrong || []).length) {
+        ans = '<div class="rev-wrong-line" style="padding:9px 12px;margin-bottom:10px;'
+          + 'border-radius:12px;background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.2);'
+          + 'font-size:13px;line-height:1.7">'
+          + r.wrong.map(function (w) { return fmt(w); }).join('<br>') + '</div>';
+      }
+
       var razbor = '<div class="rev-razbor-label">Разбор</div>' + fb(r.feedback);
       return ''
         + '<div class="rev-item ' + (ok ? 'ok' : 'bad') + '" data-i="' + i + '">'
@@ -103,15 +137,29 @@
         +     '<span class="rev-mark">' + (ok ? '✅' : '❌') + '</span>'
         +     '<span class="rev-title">' + (r.label || ('Шаг ' + (i + 1))) + '</span>'
         +     '<span class="rev-diff">' + (r.diff || '') + '</span>'
-        +     (ok ? '' : '<span class="rev-toggle">показать ▾</span>')
+        +     '<span class="rev-toggle">показать ▾</span>'
         +   '</div>'
-        +   '<div class="rev-body">' + wrongLines + razbor + '</div>'
+        +   '<div class="rev-body">' + cond + image + ans + razbor + '</div>'
         + '</div>';
     }).join('');
   }
 
+  /* Раскрываем ЛЮБОЕ задание, не только ошибочное: Ди смотрит и верные («что она
+     ответила?»). В CSS домашек у верных тоглер спрятан (`.rev-item.ok .rev-toggle`)
+     — стиль доносим из движка, чтобы не править index.html каждой домашки. */
+  var _cssDone = false;
+  function ensureCss() {
+    if (_cssDone) return;
+    _cssDone = true;
+    var s = document.createElement('style');
+    s.textContent = '.rev-head{cursor:pointer!important}'
+      + '.rev-item.ok .rev-toggle{display:inline!important}';
+    document.head.appendChild(s);
+  }
+
   function bindToggles(root) {
-    root.querySelectorAll('.rev-item.bad .rev-head').forEach(function (head) {
+    ensureCss();
+    root.querySelectorAll('.rev-item .rev-head').forEach(function (head) {
       head.addEventListener('click', function () {
         var item = head.closest('.rev-item');
         var open = item.classList.toggle('open');
