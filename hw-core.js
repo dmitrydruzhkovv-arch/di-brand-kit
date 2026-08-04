@@ -11,6 +11,7 @@
      HwCore.token()                     — ник ученика из ?u=  (без него ничего не шлём)
      HwCore.reviewCode()                — код разбора из ?r=  (режим просмотра попытки)
      HwCore.report({...})               — POST итога ВМЕСТЕ с detail (сам разбор)
+     HwCore.snap(el)                    — СНИМОК задания (см. ниже) для разбора
      HwCore.revItemsHtml(items, helpers)— карточки разбора (тот же вид на финале и в ?r=)
      HwCore.bindToggles(root)           — раскрытие ошибочных шагов
      HwCore.showReview({...})           — экран «Разбор попытки» по ссылке ?r=ник.id
@@ -18,6 +19,16 @@
    Контракт домашки: массив results[] с элементами
      { label, diff, correct, wrong: [...], feedback }
    (ровно то, что уже пишут все app.js — движок подстроен под них, не наоборот).
+
+   ── СНИМОК ЗАДАНИЯ (стандарт разбора, D 04.08) ───────────────────────────────
+   Разбор был СПЛОШНЫМ ТЕКСТОМ: условие + строка «твой/правильный» + простыня
+   разбора. D: «дети такое не читают. Хочу видеть ЭКРАН, каким он был в задаче —
+   как ученик ответил, зелёный/красный. Разбор — кратко внизу».
+   Поэтому в момент проверки домашка снимает живой DOM задания (он УЖЕ покрашен
+   check()-ом в зелёное/красное) и кладёт в `snap`. Разбор рисует этот снимок
+   картинкой сверху, а текст разбора сворачивает до пары строк («ещё ▾»).
+   Механику это не трогает: HwCore.snap() работает с любым заданием, потому что
+   снимает то, что нарисовала сама механика.
 */
 (function () {
   'use strict';
@@ -38,10 +49,40 @@
   /** Код разбора (?r=ник.id) — Ди открывает конкретную попытку ученика. */
   function reviewCode() { return qs('r', 60); }
 
+  /* ── СНИМОК ЗАДАНИЯ ───────────────────────────────────────────────────────
+     Клонируем узел механики уже ПОСЛЕ проверки (значит, с зелёным/красным),
+     обезвреживаем и отдаём HTML. Обезвредить обязательно: снимок живёт рядом с
+     настоящим заданием на одной странице, и его id/инпуты иначе конфликтуют. */
+  var SNAP_MAX = 24000;   // на одно задание; чертёж-SVG обычно 1–4 КБ
+  var SNAP_BUDGET = 140000; // на всю попытку — чтобы отчёт не разбухал в БД
+
+  function snap(el) {
+    if (!el) return '';
+    var c;
+    try { c = el.cloneNode(true); } catch (e) { return ''; }
+    // id — прочь (дубли на странице), обработчики не клонируются сами.
+    c.querySelectorAll('[id]').forEach(function (n) { n.removeAttribute('id'); });
+    if (c.removeAttribute) c.removeAttribute('id');
+    // Поля ввода — в статичный текст: снимок не должен выглядеть кликабельным.
+    c.querySelectorAll('input, textarea').forEach(function (n) {
+      var v = document.createElement('span');
+      v.className = 'snap-val';
+      v.textContent = n.value || '';
+      n.parentNode.replaceChild(v, n);
+    });
+    c.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+    var html = c.outerHTML || '';
+    return html.length > SNAP_MAX ? '' : html;   // слишком тяжёлый — падаем на текст
+  }
+
   /** detail — сам разбор: по нему ?r= воссоздаёт, что ученик сделал на каждом шаге.
       Без detail у Ди нет ссылки на разбор — показывать нечего. */
   function buildDetail(results) {
+    var spent = 0;
     return (results || []).map(function (r, i) {
+      var s = (r && r.snap) || '';
+      if (spent + s.length > SNAP_BUDGET) s = '';   // бюджет вышел — дальше без снимков
+      else spent += s.length;
       return {
         n: i + 1,
         label: r ? r.label : 'Шаг ' + (i + 1),
@@ -49,6 +90,11 @@
         ok: !!(r && r.correct),
         wrong: (r && r.wrong) || [],
         feedback: r ? r.feedback : null,
+        cond: (r && r.cond) || '',
+        image: (r && r.image) || '',
+        pick: r ? r.pick : undefined,
+        answer: r ? r.answer : undefined,
+        snap: s,
       };
     });
   }
@@ -99,25 +145,32 @@
   }
 
   /** Карточки разбора — ЕДИНЫЙ формат для всех веб-ДЗ и тестов:
-        условие задания → картинка (если есть) → твой ответ / правильный → разбор.
+        СНИМОК задания (как ученик видел, с зелёным/красным) → твой ответ /
+        правильный → короткий разбор (полный — по «ещё ▾»).
       Раскрывается по тапу (не только ошибки — верные тоже, Ди смотрит любое задание).
       helpers: { fmtInline, renderFeedback } — как рисовать математику, у каждой ДЗ своё.
-      Поля задачи: { label, diff, ok/correct, cond, image, pick, answer, wrong[], feedback } */
+      Поля задачи: { label, diff, ok/correct, snap, cond, image, pick, answer, wrong[], feedback } */
   function revItemsHtml(items, helpers) {
     var fmt = (helpers && helpers.fmtInline) || function (s) { return s; };
     var fb = (helpers && helpers.renderFeedback) || function () { return ''; };
     return (items || []).map(function (r, i) {
       var ok = !!(r.correct !== undefined ? r.correct : r.ok);
 
-      var cond = r.cond ? '<p class="rev-cond" style="font-size:13.5px;line-height:1.6;'
-        + 'margin:0 0 10px">' + fmt(r.cond) + '</p>' : '';
-      var image = r.image ? '<div class="rev-fig" style="margin:0 0 10px"><img src="' + r.image
-        + '" alt="чертёж" style="max-width:100%;border-radius:10px"></div>' : '';
+      // Условие — одной приглушённой строкой над снимком: напомнить, о чём шла речь.
+      var cond = r.cond ? '<p class="rev-cond">' + fmt(r.cond) + '</p>' : '';
+      // Снимок — главное. Он уже несёт и чертёж, и выбор ученика в цвете.
+      var snapHtml = r.snap ? '<div class="rev-snap">' + r.snap + '</div>' : '';
+      // Файл-картинка (старые задания без снимка) — как было.
+      var image = (!r.snap && r.image) ? '<div class="rev-fig" style="margin:0 0 10px"><img src="'
+        + r.image + '" alt="чертёж" style="max-width:100%;border-radius:10px"></div>' : '';
 
       // Ответы: что дал ученик и что верно. Если механика их не отдала — падаем на
       // строки wrong[] (старый вид), чтобы разбор не пустовал.
       var ans = '';
-      if (r.pick !== undefined && r.pick !== null && r.pick !== '') {
+      // Со снимком строка «твой ответ» на ВЕРНОМ задании — дубль: на картинке уже
+      // видно, что выбрано, и заголовок зелёный. На ошибке оставляем обе строки.
+      var skipPick = !!r.snap && ok;
+      if (!skipPick && r.pick !== undefined && r.pick !== null && r.pick !== '') {
         ans += ansRow(fmt(String(r.pick)), ok ? 'yours-ok' : 'yours-bad');
       }
       if (!ok && r.answer !== undefined && r.answer !== null && r.answer !== '') {
@@ -130,7 +183,17 @@
           + r.wrong.map(function (w) { return fmt(w); }).join('<br>') + '</div>';
       }
 
-      var razbor = '<div class="rev-razbor-label">Разбор</div>' + fb(r.feedback);
+      // Разбор — свёрнут до пары строк. Простыня текста внутри разбора и была
+      // жалобой D: смысл сохраняем, но она больше не встречает ученика стеной.
+      var razbor = fb(r.feedback);
+      razbor = razbor
+        ? '<div class="rev-razbor">'
+          + '<div class="rev-razbor-label">Разбор</div>'
+          + '<div class="rev-fb clamp">' + razbor + '</div>'
+          + '<button type="button" class="rev-more">ещё ▾</button>'
+          + '</div>'
+        : '';
+
       return ''
         + '<div class="rev-item ' + (ok ? 'ok' : 'bad') + '" data-i="' + i + '">'
         +   '<div class="rev-head">'
@@ -139,7 +202,7 @@
         +     '<span class="rev-diff">' + (r.diff || '') + '</span>'
         +     '<span class="rev-toggle">показать ▾</span>'
         +   '</div>'
-        +   '<div class="rev-body">' + cond + image + ans + razbor + '</div>'
+        +   '<div class="rev-body">' + cond + snapHtml + image + ans + razbor + '</div>'
         + '</div>';
     }).join('');
   }
@@ -152,9 +215,48 @@
     if (_cssDone) return;
     _cssDone = true;
     var s = document.createElement('style');
-    s.textContent = '.rev-head{cursor:pointer!important}'
-      + '.rev-item.ok .rev-toggle{display:inline!important}';
+    s.textContent = [
+      '.rev-head{cursor:pointer!important}',
+      '.rev-item.ok .rev-toggle{display:inline!important}',
+      /* Условие — тихая подпись над снимком, а не абзац для чтения. */
+      '.rev-cond{font-size:12.5px;line-height:1.55;margin:0 0 9px;opacity:.62}',
+      /* Снимок задания. Смотреть можно, трогать нечего — он мёртвый. */
+      '.rev-snap{position:relative;margin:0 0 10px;padding:10px;border-radius:12px;',
+      'background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);',
+      'pointer-events:none;user-select:none}',
+      '.rev-snap *{pointer-events:none!important;cursor:default!important}',
+      '.rev-snap svg{max-width:100%;height:auto}',
+      '.rev-snap img{max-width:100%;height:auto}',
+      '.rev-snap .snap-val{font-family:var(--lk-mono,monospace);font-weight:700}',
+      /* Разбор свёрнут до ~3 строк, полный — по «ещё». */
+      '.rev-razbor{margin-top:10px}',
+      '.rev-fb.clamp{max-height:78px;overflow:hidden;',
+      '-webkit-mask-image:linear-gradient(#000 46px,transparent);mask-image:linear-gradient(#000 46px,transparent)}',
+      '.rev-more{margin-top:4px;padding:0;background:none;border:0;cursor:pointer;',
+      'font-family:var(--lk-mono,monospace);font-size:11px;color:var(--lk-accent,#7C6CF0);opacity:.85}',
+      '.rev-razbor.open .rev-fb.clamp{max-height:none;-webkit-mask-image:none;mask-image:none}',
+    ].join('');
     document.head.appendChild(s);
+  }
+
+  /* Короткий разбор не прячем, если он и так короткий: кнопка «ещё» появляется
+     только когда текст реально обрезан. Иначе на каждом задании висит пустышка. */
+  function tuneRazbor(root) {
+    root.querySelectorAll('.rev-razbor').forEach(function (rz) {
+      var fbEl = rz.querySelector('.rev-fb');
+      var btn = rz.querySelector('.rev-more');
+      if (!fbEl || !btn) return;
+      if (fbEl.scrollHeight <= fbEl.clientHeight + 4) {
+        fbEl.classList.remove('clamp');
+        btn.remove();
+        return;
+      }
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var open = rz.classList.toggle('open');
+        btn.textContent = open ? 'свернуть ▴' : 'ещё ▾';
+      });
+    });
   }
 
   function bindToggles(root) {
@@ -165,6 +267,8 @@
         var open = item.classList.toggle('open');
         var tg = item.querySelector('.rev-toggle');
         if (tg) tg.textContent = open ? 'скрыть ▴' : 'показать ▾';
+        // Обрезку меряем после раскрытия: в скрытом блоке высоты нулевые.
+        if (open) tuneRazbor(item);
       });
     });
   }
@@ -252,6 +356,7 @@
     token: token,
     reviewCode: reviewCode,
     report: report,
+    snap: snap,
     revItemsHtml: revItemsHtml,
     bindToggles: bindToggles,
     showReview: showReview,
