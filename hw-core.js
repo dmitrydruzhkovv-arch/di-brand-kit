@@ -509,6 +509,7 @@
   function bindTaps(root) {
     if (_bound) return;
     _bound = true;
+    fx.bound = true;                 // видно снаружи: движок ведёт отклик сам
     var r = root || document;
     r.addEventListener('pointerdown', onDown, true);
     r.addEventListener('keydown', onKey, true);
@@ -516,6 +517,7 @@
 
   var fx = {
     enabled: true,
+    bound: false,
     tap: tap,
     blip: blip,
     flash: tapFlash,
