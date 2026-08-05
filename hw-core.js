@@ -450,6 +450,8 @@
 
   function pressPulse(el) {
     if (!el || !el.classList) return;
+    if (el.ownerSVGElement) return;   // линию чертежа не «вжимаем» — scale в SVG едет от угла
+
     ensureFxCss();
     el.classList.remove('lk-tapped');
     void el.offsetWidth;
@@ -522,11 +524,17 @@
   };
 
   // Автоподключение: любая страница с hw-core получает отклик без правок app.js.
-  if (!window.HW_NO_TAPFX) {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function () { bindTaps(); });
-    } else bindTaps();
+  // Кроме тех, где отклик УЖЕ сделан своими руками (ДЗ П2 «Счёт углов» — своя
+  // функция `tapFx` и свой слушатель на document): иначе на каждый тап звучало бы
+  // два щелчка разом. Своё всегда главнее — движок молча уступает.
+  // Проверяем ПОСЛЕ загрузки app.js (иначе своей tapFx на этот момент ещё нет).
+  function maybeBind() {
+    if (window.HW_NO_TAPFX) return;
+    if (typeof window.tapFx === 'function') return;
+    bindTaps();
   }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', maybeBind);
+  else maybeBind();
 
   window.HwCore = {
     ENDPOINT: ENDPOINT,
