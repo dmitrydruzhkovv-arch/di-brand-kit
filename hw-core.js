@@ -351,6 +351,183 @@
     catch (e) {}
   }
 
+  /* ── ТАП-ОТКЛИК: живой отклик на КАЖДОЕ нажатие (D, 05.08) ──────────────────
+     До этого домашка отвечала только на «Проверить»: выбрал вариант — тишина,
+     ткнул фишку — тишина. D: «хочу, чтобы анимация была на всё, что можно нажать».
+     Поэтому отклик живёт в движке, а не в каждой домашке: подключил hw-core —
+     получил отклик на всех кнопках, полях и фишках, включая старые ДЗ.
+
+     Как звучит: короткий мягкий блип, синтезируется WebAudio (файл не нужен —
+     ноль веса, работает офлайн). Подряд идущие тапы идут ВВЕРХ по пентатонике —
+     набираешь «лесенку», пауза сбрасывает. Победа/ошибка остаются мелодиями-
+     файлами: блип их не перебивает (он в 6 раз тише и в 10 раз короче).
+
+     Отдельно `soft`: кнопки-вердикты («Проверить») получают только звук и
+     подсветку самой кнопки — полноэкранная вспышка не нужна, через миг придёт
+     своя, зелёная или красная. Выключить всё: window.HW_NO_TAPFX = true. */
+
+  var TAP_STEPS = [0, 2, 4, 7, 9, 12, 14, 16];   // пентатоника от C5 — не бывает фальши
+  var _ac = null, _pitchStep = 0, _pitchAt = 0, _lastTapAt = 0;
+
+  function actx() {
+    if (_ac) return _ac;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try { _ac = new AC(); } catch (e) { _ac = null; }
+    return _ac;
+  }
+
+  /** Короткий блип. kind: 'tap' (обычный) · 'soft' (тише, для вердикт-кнопок). */
+  function blip(kind) {
+    var ctx = actx();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
+
+    var now = ctx.currentTime;
+    // Лесенка: тапы в пределах 2.5 с идут вверх, дальше — с начала.
+    if (now - _pitchAt > 2.5) _pitchStep = 0;
+    _pitchAt = now;
+    var semi = TAP_STEPS[_pitchStep % TAP_STEPS.length];
+    _pitchStep++;
+
+    var soft = kind === 'soft';
+    var freq = 523.25 * Math.pow(2, semi / 12);
+    var dur = soft ? 0.05 : 0.085;
+    var vol = soft ? 0.045 : 0.075;
+
+    function voice(f, v, type) {
+      var osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(f, now);
+      osc.frequency.exponentialRampToValueAtTime(f * 0.97, now + dur);
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.exponentialRampToValueAtTime(v, now + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(now); osc.stop(now + dur + 0.02);
+    }
+    voice(freq, vol, 'triangle');
+    voice(freq * 2, vol * 0.28, 'sine');      // октавой выше, еле слышно — «стеклянность»
+  }
+
+  var _fxCss = false;
+  function ensureFxCss() {
+    if (_fxCss) return;
+    _fxCss = true;
+    var s = document.createElement('style');
+    s.textContent = [
+      /* Слой вспышки тапа. Тот же приём, что у .lk-flash-*, но короче и мягче:
+         это «дыхание» интерфейса, а не вердикт. */
+      '.lk-flash-tap{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0;',
+      'background:radial-gradient(120% 78% at 50% 100%,rgba(168,85,247,.30),transparent 68%)}',
+      '.lk-flash-tap.is-on{animation:lk-tap-fx .26s ease-out}',
+      '@keyframes lk-tap-fx{0%{opacity:0}20%{opacity:.85}100%{opacity:0}}',
+      /* Сам элемент тоже отвечает — микро-нажатие под пальцем. */
+      '.lk-tapped{animation:lk-tap-press .17s ease-out}',
+      '@keyframes lk-tap-press{0%{transform:scale(1)}42%{transform:scale(.955)}100%{transform:scale(1)}}',
+      '@media (prefers-reduced-motion:reduce){.lk-flash-tap.is-on,.lk-tapped{animation:none}}',
+    ].join('');
+    document.head.appendChild(s);
+  }
+
+  function tapLayer() {
+    var el = document.getElementById('lk-fx-tap');
+    if (el) return el;
+    ensureFxCss();
+    el = document.createElement('div');
+    el.id = 'lk-fx-tap';
+    el.className = 'lk-flash lk-flash-tap';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function tapFlash() {
+    var el = tapLayer();
+    el.classList.remove('is-on');
+    void el.offsetWidth;
+    el.classList.add('is-on');
+  }
+
+  function pressPulse(el) {
+    if (!el || !el.classList) return;
+    ensureFxCss();
+    el.classList.remove('lk-tapped');
+    void el.offsetWidth;
+    el.classList.add('lk-tapped');
+    el.addEventListener('animationend', function () { el.classList.remove('lk-tapped'); }, { once: true });
+  }
+
+  /** Отклик на нажатие: вспышка фона + блип + микро-нажатие элемента.
+      opts: { soft: true } — без полноэкранной вспышки (кнопки-вердикты). */
+  function tap(el, opts) {
+    if (fx.enabled === false) return;
+    opts = opts || {};
+    var now = Date.now();
+    if (now - _lastTapAt < 45) return;        // защита от дубля pointerdown+click
+    _lastTapAt = now;
+    if (!opts.soft) tapFlash();
+    pressPulse(el);
+    blip(opts.soft ? 'soft' : 'tap');
+  }
+
+  /* Что считаем «нажимаемым». Кнопки, поля, фишки-корзины, ручки чертежа.
+     Явно выключить на элементе: data-notap. Явно включить: data-tap. */
+  var TAP_SEL = 'button,[role="button"],input,select,textarea,label,summary,'
+    + '[data-tap],[data-handle],[data-bin],.bn-bin,.lk-btn,.lk-hint-btn';
+
+  function tapTarget(node) {
+    if (!node || !node.closest) return null;
+    if (node.closest('.rev-snap')) return null;           // снимок в разборе — мёртвый
+    if (node.closest('[data-notap]')) return null;
+    var el = node.closest(TAP_SEL);
+    if (!el || el.disabled) return null;
+    if (el.getAttribute && el.getAttribute('aria-disabled') === 'true') return null;
+    return el;
+  }
+
+  function isSoft(el) {
+    return !!(el.dataset && el.dataset.tap === 'soft')
+      || /(^|\s)(check-btn|reset-btn|rd-yes|rd-no)(\s|$)/.test(el.className || '');
+  }
+
+  function onDown(e) {
+    var el = tapTarget(e.target);
+    if (!el) return;
+    tap(el, { soft: isSoft(el) });
+  }
+
+  // Печать цифры в поле — тоже нажатие (D: «когда вводишь какую-то цифру»).
+  function onKey(e) {
+    var t = e.target;
+    if (!t || (t.tagName !== 'INPUT' && t.tagName !== 'TEXTAREA')) return;
+    if (e.key && e.key.length === 1) blip('soft');
+  }
+
+  var _bound = false;
+  function bindTaps(root) {
+    if (_bound) return;
+    _bound = true;
+    var r = root || document;
+    r.addEventListener('pointerdown', onDown, true);
+    r.addEventListener('keydown', onKey, true);
+  }
+
+  var fx = {
+    enabled: true,
+    tap: tap,
+    blip: blip,
+    flash: tapFlash,
+    bindTaps: bindTaps,
+    resetPitch: function () { _pitchStep = 0; },
+  };
+
+  // Автоподключение: любая страница с hw-core получает отклик без правок app.js.
+  if (!window.HW_NO_TAPFX) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () { bindTaps(); });
+    } else bindTaps();
+  }
+
   window.HwCore = {
     ENDPOINT: ENDPOINT,
     token: token,
@@ -362,5 +539,6 @@
     showReview: showReview,
     unlockAudio: unlockAudio,
     playSound: playSound,
+    fx: fx,
   };
 })();
