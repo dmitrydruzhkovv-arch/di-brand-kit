@@ -116,6 +116,10 @@
           token: tok,
           hw: o.hw,
           hw_id: o.hw_id,
+          // Свой адрес — чтобы ссылку на разбор не приходилось прописывать руками
+          // на сервере под каждую новую домашку (D, 06.08: «надо это всегда вшивать»).
+          // Сервер этому не верит на слово: пускает только свой github.io-домен.
+          hw_url: location.origin + location.pathname,
           score: o.score,
           total: o.total,
           errors: errors,
