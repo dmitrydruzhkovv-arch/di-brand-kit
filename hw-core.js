@@ -158,7 +158,99 @@
     });
   }
 
-  /** Отправка итога репетитору (#38). Возвращает true, если реально ушло. */
+  /* ── ДОСТАВКА ОТЧЁТА (починено 23.09.2026) ─────────────────────────────────
+     Было: fetch с keepalive и молчаливым .catch. У keepalive потолок 64 КБ, а отчёт
+     со снимками графиков весит ~140 КБ — браузер отказывал сразу, ошибку глотали,
+     экран писал «✅ отправлено». Домашки по графикам не доходили с августа.
+     Стало: keepalive только для маленьких отчётов; отчёт лежит в очереди
+     (localStorage), пока сервер не ответит 200; ученик видит честный статус и
+     кнопку «Отправить ещё раз»; недошедшее досылается при следующем открытии. */
+  var PENDING_KEY = 'hw-core-pending';
+  var KEEPALIVE_MAX = 30000;   // символов; кириллица в UTF-8 вдвое тяжелее — запас до 64 КБ
+
+  function loadPending() {
+    try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]') || []; } catch (e) { return []; }
+  }
+  function savePending(list) {
+    try {
+      if (list.length) localStorage.setItem(PENDING_KEY, JSON.stringify(list.slice(-3)));
+      else localStorage.removeItem(PENDING_KEY);
+    } catch (e) { /* хранилище полное/закрыто — отчёт живёт только в этой вкладке */ }
+  }
+
+  function post(body) {
+    return fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body,
+      keepalive: body.length < KEEPALIVE_MAX,
+    }).then(function (r) { return r.ok; }).catch(function () { return false; });
+  }
+
+  // Плашка статуса внизу экрана. Пока отчёт не подтверждён сервером, прячем
+  // «✅ Результат уже отправлен» из app.js (.send-note) — он не должен врать.
+  function setStatus(state) {
+    var root = document.documentElement;
+    root.classList.toggle('hw-send-wait', state !== 'ok' && state !== 'none');
+    if (!document.getElementById('hw-send-css')) {
+      var st = document.createElement('style');
+      st.id = 'hw-send-css';
+      st.textContent = '.hw-send-wait .send-note{display:none!important}';
+      document.head.appendChild(st);
+    }
+    var bar = document.getElementById('hw-send-bar');
+    if (state === 'none') { if (bar) bar.remove(); return; }
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'hw-send-bar';
+      bar.setAttribute('style', 'position:fixed;left:12px;right:12px;bottom:12px;z-index:99998;max-width:460px;' +
+        'margin:0 auto;padding:12px 14px;border-radius:14px;font:15px/1.45 system-ui,sans-serif;' +
+        'box-shadow:0 8px 30px rgba(0,0,0,.3);color:#1c1917');
+      document.body.appendChild(bar);
+    }
+    if (state === 'sending') {
+      bar.style.background = '#e0e7ff';
+      bar.innerHTML = '⏳ Отправляю результат учителю…';
+    } else if (state === 'ok') {
+      bar.style.background = '#dcfce7';
+      bar.innerHTML = '✅ Результат у учителя';
+      setTimeout(function () { if (bar.parentNode) bar.remove(); }, 4000);
+    } else {
+      bar.style.background = '#fee2e2';
+      bar.innerHTML = '<div style="margin-bottom:8px">⚠️ <b>Результат не дошёл до учителя.</b> ' +
+        'Проверь интернет, выключи VPN и нажми кнопку.</div>' +
+        '<button type="button" style="width:100%;padding:11px;border:0;border-radius:10px;' +
+        'background:#dc2626;color:#fff;font:600 15px system-ui,sans-serif">🔁 Отправить ещё раз</button>';
+      bar.querySelector('button').onclick = function () { flush(true); };
+    }
+  }
+
+  var flushing = false, again = false, againShow = false;
+  // Досылаем всю очередь. show — рисовать ли плашку (на этой странице есть свой отчёт).
+  function flush(show) {
+    if (flushing) { again = true; againShow = againShow || show; return; }
+    var list = loadPending();
+    if (!list.length) { if (show) setStatus('none'); return; }
+    flushing = true;
+    if (show) setStatus('sending');
+    var sent = [];
+    var chain = Promise.resolve();
+    list.forEach(function (body) {
+      chain = chain.then(function () {
+        return post(body).then(function (ok) { if (ok) sent.push(body); });
+      });
+    });
+    chain.then(function () {
+      flushing = false;
+      // Перечитываем очередь: пока слали, могли добавить новый отчёт — его не теряем.
+      var left = loadPending().filter(function (b) { return sent.indexOf(b) < 0; });
+      savePending(left);
+      if (again) { var s = againShow || show; again = againShow = false; flush(s); return; }
+      if (show) setStatus(left.length ? 'fail' : 'ok');
+    });
+  }
+
+  /** Отправка итога репетитору (#38). true = отчёт принят в доставку (очередь). */
   function report(o) {
     var tok = token();
     if (!tok) return false;                       // без ?u= не шлём никогда
@@ -167,30 +259,49 @@
     (o.results || []).forEach(function (r, i) {
       if (r && !r.correct) errors.push('№' + (i + 1) + ' ' + r.label);
     });
+    var body;
     try {
-      fetch(ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: tok,
-          hw: o.hw,
-          hw_id: o.hw_id,
-          // Свой адрес — чтобы ссылку на разбор не приходилось прописывать руками
-          // на сервере под каждую новую домашку (D, 06.08: «надо это всегда вшивать»).
-          // Сервер этому не верит на слово: пускает только свой github.io-домен.
-          hw_url: location.origin + location.pathname,
-          score: o.score,
-          total: o.total,
-          errors: errors,
-          detail: buildDetail(o.results),
-          started_at: o.startedAt || null,
-          duration_sec: o.durationSec != null ? o.durationSec : null,
-        }),
-        keepalive: true,
-      }).catch(function () {});
+      body = JSON.stringify({
+        token: tok,
+        hw: o.hw,
+        hw_id: o.hw_id,
+        // Свой адрес — чтобы ссылку на разбор не приходилось прописывать руками
+        // на сервере под каждую новую домашку (D, 06.08: «надо это всегда вшивать»).
+        // Сервер этому не верит на слово: пускает только свой github.io-домен.
+        hw_url: location.origin + location.pathname,
+        score: o.score,
+        total: o.total,
+        errors: errors,
+        detail: buildDetail(o.results),
+        started_at: o.startedAt || null,
+        duration_sec: o.durationSec != null ? o.durationSec : null,
+      });
     } catch (e) { return false; }
+    var list = loadPending();
+    list.push(body);
+    savePending(list);
+    if (!loadPending().length) {
+      // хранилище недоступно — шлём напрямую, без очереди
+      setStatus('sending');
+      post(body).then(function (ok) { setStatus(ok ? 'ok' : 'fail'); });
+      return true;
+    }
+    flush(true);
     return true;
   }
+
+  // Открыли любую домашку — досылаем то, что не дошло в прошлый раз.
+  // Плашку показываем, только если недошедший отчёт — от этой самой страницы.
+  (function resendOnOpen() {
+    if (reviewCode()) return;
+    var here = location.origin + location.pathname;
+    var mine = loadPending().some(function (b) {
+      try { return JSON.parse(b).hw_url === here; } catch (e) { return false; }
+    });
+    var go = function () { flush(mine); };
+    if (document.body) setTimeout(go, 800);
+    else document.addEventListener('DOMContentLoaded', function () { setTimeout(go, 800); });
+  })();
 
   /* Строка ответа в разборе — «твой выбор» / «правильный». Формат взят из входного
      теста ОГЭ (rvRow), где Ди его и видел; теперь он общий для домашек и тестов. */
