@@ -71,8 +71,8 @@
       '<form style="background:#fff;color:#1c1917;border-radius:16px;padding:22px 20px;width:100%;max-width:340px;' +
       'box-shadow:0 10px 40px rgba(0,0,0,.35)">' +
       '<div style="font-size:19px;font-weight:800;margin-bottom:6px">Как тебя зовут?</div>' +
-      '<div style="font-size:14px;color:#57534e;margin-bottom:14px">Имя и фамилия — чтобы учитель увидел, что домашку решил ты.</div>' +
-      '<input name="n" autocomplete="name" placeholder="Имя Фамилия" style="width:100%;box-sizing:border-box;font-size:17px;' +
+      '<div style="font-size:14px;color:#57534e;margin-bottom:14px">Только имя — чтобы учитель увидел, что домашку решил ты.</div>' +
+      '<input name="n" autocomplete="given-name" placeholder="Имя" style="width:100%;box-sizing:border-box;font-size:17px;' +
       'padding:11px 12px;border:2px solid #c7d2fe;border-radius:10px;outline:none">' +
       '<button type="submit" style="margin-top:12px;width:100%;font-size:17px;font-weight:700;padding:12px;border:0;' +
       'border-radius:10px;background:#4f46e5;color:#fff">Начать</button></form>';
