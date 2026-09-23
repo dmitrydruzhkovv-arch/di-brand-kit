@@ -40,10 +40,69 @@
     return (p.get(name) || '').slice(0, max || 40);
   }
 
-  /** Ник ученика (?u=). Пусто → ничего не отправляем (аноним/превью — старые ссылки безопасны). */
+  /* ── ВХОД С САЙТА КЛАССА (?k=g9, D 23.09.2026) ────────────────────────────
+     Ссылка с сайта класса одна на всех, личного ?u= в ней нет. Поэтому домашка
+     один раз спрашивает имя и помнит его в этом телефоне. Токен = «класс-имя»:
+     сервер по префиксу понимает, откуда ученик. Точку из имени выкидываем —
+     она разделитель в коде разбора ?r=ник.id. */
+  var KLASSY = { g9: '9 класс' };
+  var klass = (function () {
+    var k = qs('k', 8);
+    return KLASSY[k] ? k : '';
+  })();
+  var klassName = '';
+
+  function cleanName(s) {
+    return String(s || '').replace(/[^A-Za-zА-Яа-яЁё \-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
+  }
+  function nameKey() { return 'hw-core-name-' + klass; }
+  function loadName() {
+    try { return cleanName(localStorage.getItem(nameKey())); } catch (e) { return ''; }
+  }
+  function saveName(n) {
+    try { localStorage.setItem(nameKey(), n); } catch (e) { /* без хранилища — спросим снова в следующий раз */ }
+  }
+
+  function askName() {
+    var box = document.createElement('div');
+    box.setAttribute('style', 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;' +
+      'background:rgba(15,15,25,.72);padding:16px;font-family:system-ui,sans-serif');
+    box.innerHTML =
+      '<form style="background:#fff;color:#1c1917;border-radius:16px;padding:22px 20px;width:100%;max-width:340px;' +
+      'box-shadow:0 10px 40px rgba(0,0,0,.35)">' +
+      '<div style="font-size:19px;font-weight:800;margin-bottom:6px">Как тебя зовут?</div>' +
+      '<div style="font-size:14px;color:#57534e;margin-bottom:14px">Имя и фамилия — чтобы учитель увидел, что домашку решил ты.</div>' +
+      '<input name="n" autocomplete="name" placeholder="Имя Фамилия" style="width:100%;box-sizing:border-box;font-size:17px;' +
+      'padding:11px 12px;border:2px solid #c7d2fe;border-radius:10px;outline:none">' +
+      '<button type="submit" style="margin-top:12px;width:100%;font-size:17px;font-weight:700;padding:12px;border:0;' +
+      'border-radius:10px;background:#4f46e5;color:#fff">Начать</button></form>';
+    var form = box.querySelector('form'), input = box.querySelector('input');
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var n = cleanName(input.value);
+      if (n.length < 2) { input.style.borderColor = '#dc2626'; input.focus(); return; }
+      klassName = n; saveName(n);
+      box.remove();
+    });
+    document.body.appendChild(box);
+    setTimeout(function () { input.focus(); }, 50);
+  }
+
+  if (klass && !qs('u') && !qs('id') && !qs('r')) {
+    klassName = loadName();
+    if (!klassName) {
+      if (document.body) askName();
+      else document.addEventListener('DOMContentLoaded', askName);
+    }
+  }
+
+  /** Ник ученика (?u=), а со ссылки класса — «класс-имя». Пусто → ничего не отправляем
+      (аноним/превью — старые ссылки безопасны). */
   function token() {
     var p = new URLSearchParams(location.search);
-    return (p.get('u') || p.get('id') || '').slice(0, 40);
+    var u = (p.get('u') || p.get('id') || '').slice(0, 40);
+    if (u) return u;
+    return klass && klassName ? (klass + '-' + klassName).slice(0, 40) : '';
   }
 
   /** Код разбора (?r=ник.id) — Ди открывает конкретную попытку ученика. */
