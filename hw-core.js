@@ -33,7 +33,51 @@
 (function () {
   'use strict';
 
-  var ENDPOINT = 'https://194-87-110-53.nip.io/hw-result';
+  /* ── АДРЕС СЕРВЕРА: ПРЯМОЙ И ЗАПАСНОЙ (25.09.2026) ─────────────────────────
+     С включённым VPN до RF-сервера не достучаться: соединение открывается и
+     виснет. Запасной адрес ведёт на шлюз в Хельсинки, а шлюз, не расшифровывая,
+     пересылает поток на тот же RF-сервер — данные ученика читает только РФ.
+     Перед отправкой щупаем /health (5 с на адрес): кто ответил, туда и шлём.
+     Сработавший адрес помним — с VPN в следующий раз не ждём лишние 5 с. */
+  var HOSTS = ['https://194-87-110-53.nip.io', 'https://hw.157-228-128-116.nip.io'];
+  var HOST_KEY = 'hw-core-host';
+  var PROBE_MS = 5000;
+  var baseP = null;
+
+  function timedFetch(url, opts, ms) {
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var t = ctrl ? setTimeout(function () { ctrl.abort(); }, ms) : null;
+    if (ctrl) opts.signal = ctrl.signal;
+    return fetch(url, opts).then(
+      function (r) { clearTimeout(t); return r; },
+      function (e) { clearTimeout(t); throw e; });
+  }
+
+  function hostOrder() {
+    var saved = '';
+    try { saved = localStorage.getItem(HOST_KEY) || ''; } catch (e) { /* без памяти — прямой первым */ }
+    return HOSTS.indexOf(saved) > 0 ? [saved].concat(HOSTS.filter(function (h) { return h !== saved; })) : HOSTS.slice();
+  }
+
+  // Промис с живым адресом сервера. Не ответил никто — отдаём прямой, а выбор
+  // забываем: следующая попытка («Отправить ещё раз») пощупает заново.
+  function serverBase() {
+    if (baseP) return baseP;
+    var order = hostOrder();
+    baseP = new Promise(function (done) {
+      var i = 0;
+      (function next() {
+        if (i >= order.length) { baseP = null; done(HOSTS[0]); return; }
+        var h = order[i++];
+        // no-cors: нам нужен лишь факт ответа, CORS для /health не нужен
+        timedFetch(h + '/health', { mode: 'no-cors', cache: 'no-store' }, PROBE_MS).then(function () {
+          try { if (h === HOSTS[0]) localStorage.removeItem(HOST_KEY); else localStorage.setItem(HOST_KEY, h); } catch (e) { /* ok */ }
+          done(h);
+        }, next);
+      })();
+    });
+    return baseP;
+  }
 
   function qs(name, max) {
     var p = new URLSearchParams(location.search);
@@ -179,12 +223,17 @@
   }
 
   function post(body) {
-    return fetch(ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: body,
-      keepalive: body.length < KEEPALIVE_MAX,
-    }).then(function (r) { return r.ok; }).catch(function () { return false; });
+    return serverBase().then(function (base) {
+      return fetch(base + '/hw-result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body,
+        keepalive: body.length < KEEPALIVE_MAX,
+      });
+    }).then(function (r) { return r.ok; }).catch(function () {
+      baseP = null;   // сеть поменялась (включили/выключили VPN) — адрес выберем заново
+      return false;
+    });
   }
 
   // Плашка статуса внизу экрана. Пока отчёт не подтверждён сервером, прячем
@@ -218,7 +267,7 @@
     } else {
       bar.style.background = '#fee2e2';
       bar.innerHTML = '<div style="margin-bottom:8px">⚠️ <b>Результат не дошёл до учителя.</b> ' +
-        'Проверь интернет, выключи VPN и нажми кнопку.</div>' +
+        'Проверь интернет и нажми кнопку. Не помогло — выключи VPN.</div>' +
         '<button type="button" style="width:100%;padding:11px;border:0;border-radius:10px;' +
         'background:#dc2626;color:#fff;font:600 15px system-ui,sans-serif">🔁 Отправить ещё раз</button>';
       bar.querySelector('button').onclick = function () { flush(true); };
@@ -462,7 +511,8 @@
         + msg + '</p></div>';
     };
 
-    fetch(ENDPOINT + '?r=' + encodeURIComponent(code))
+    serverBase()
+      .then(function (base) { return fetch(base + '/hw-result?r=' + encodeURIComponent(code)); })
       .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function (res) {
         if (!res.ok || !Array.isArray(res.detail) || !res.detail.length) return Promise.reject('empty');
@@ -713,7 +763,7 @@
   else maybeBind();
 
   window.HwCore = {
-    ENDPOINT: ENDPOINT,
+    ENDPOINT: HOSTS[0] + '/hw-result',   // прямой адрес; отправка сама выбирает прямой/запасной
     token: token,
     reviewCode: reviewCode,
     report: report,
